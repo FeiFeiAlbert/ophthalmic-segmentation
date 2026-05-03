@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Model Dice](https://img.shields.io/badge/Val%20Dice-0.9554-brightgreen)](docs/results.md)
 
-**A high-accuracy UNet++眼底图像分割模型 for multi-class retinal image segmentation.**
+**High-accuracy UNet++ 眼底图像分割模型 for multi-class retinal image segmentation.**
 
 [English](README.md) | [中文](README_zh.md)
 
@@ -17,11 +17,14 @@
 
 ## ✨ Features
 
-- **High Accuracy**: Val Dice = 0.9554 (TTA: 0.9398)
+- **High Accuracy**: Val Dice = **0.9554** (V16 with hot-start from V13)
 - **Multi-class Segmentation**: Background, ROI (Retinal Region), Valid Reflex
+- **V16 Training Script**: Complete training with Combined Loss (Focal + Dice + Lovasz)
+- **4-Direction TTA**: Test-Time Augmentation for robust predictions
+- **Hot-Start Training**: Start from V13 pretrained weights for faster convergence
 - **Pre-trained Models**: Ready-to-use checkpoints
 - **Web Demo**: Interactive browser-based demo
-- **Easy Training**: Single-file training script with comprehensive logging
+- **Real Model Inference**: Load trained model and predict on new images
 
 ## 📊 Performance
 
@@ -40,6 +43,9 @@ UNet++ with EfficientNet-B4 encoder
 ├── Encoder: EfficientNet-B4 (ImageNet pretrained)
 ├── Decoder: UNet++ dense skip connections
 └── Output: 448×448×3 segmentation mask
+    ├── Class 0: Background (black)
+    ├── Class 1: ROI - Retinal Region (green)
+    └── Class 2: Valid Reflex (red)
 ```
 
 ## 🔧 Installation
@@ -59,49 +65,101 @@ pip install -e .
 ### Dependencies
 
 ```
-torch >= 2.0
-segmentation-models-pytorch
-albumentations
-opencv-python
-pillow
-matplotlib
+torch >= 2.0.0
+torchvision >= 0.15.0
+segmentation-models-pytorch >= 0.3.3
+albumentations >= 1.3.1
+opencv-python >= 4.8.0
+pillow >= 10.0.0
+matplotlib >= 3.7.0
+numpy >= 1.24.0
+tqdm >= 4.65.0
 ```
 
 ## 🚀 Quick Start
 
-### 1. Load Pre-trained Model
+### 1. Use Pre-trained Model (Recommended)
 
 ```python
 import torch
-import ophthalmic_segmentation as seg
+from ophthalmic_segmentation.model import create_model
+from ophthalmic_segmentation import FundusSegmenter
 
-# Load model
-model = seg.load_model('unetpp_efficientnetb4', num_classes=3)
-model.load_state_dict(torch.load('best_model.pth'))
-model.eval()
+# Create model
+segmenter = FundusSegmenter.create_model(
+    architecture='unetpp', 
+    encoder='efficientnet-b4', 
+    num_classes=3
+)
 
-# Predict
-image = seg.load_image('path/to/image.jpg', size=448)
-mask = model.predict(image)
-seg.visualize(image, mask)
+# Load pretrained weights
+segmenter.load_checkpoint('checkpoints/best_model.pth')
+
+# Predict on image
+from PIL import Image
+image = Image.open('path/to/fundus_image.jpg')
+mask = segmenter.predict(image, input_size=448, apply_tta=True)
+
+# Visualize
+overlay = segmenter.visualize(image, mask, alpha=0.5)
 ```
 
-### 2. Train Your Own Model
+### 2. Train Your Own Model (V16)
 
-```python
-from unet_train_v16 import train
+Train from scratch or with hot-start from V13:
 
-# Train with default config
-train(
-    image_dir='data/images',
-    label_dir='data/labels',
-    save_dir='checkpoints'
-)
+```bash
+# Train with V16 (from scratch, ImageNet pretrained encoder)
+python scripts/train_v16.py \
+    --data_dir ./data \
+    --img_size 448 \
+    --batch_size 4 \
+    --epochs 200 \
+    --save_dir checkpoints
+
+# Train with hot-start from V13 weights
+python scripts/train_v16.py \
+    --data_dir ./data \
+    --pretrained checkpoints_v13/best_model.pth \
+    --img_size 448 \
+    --batch_size 4 \
+    --epochs 200 \
+    --save_dir checkpoints_v16
+```
+
+**V16 Key Features:**
+- Combined Loss: 0.3×Focal + 0.4×Dice + 0.3×Lovasz
+- Differential Learning Rates: encoder=1e-5, decoder=1e-4
+- CosineAnnealingWarmRestarts scheduler (T₀=50, T_mult=2)
+- 4-direction TTA validation
+- Early stopping with patience=50
+
+### 3. Run Inference
+
+```bash
+# Single image inference with TTA
+python scripts/predict.py \
+    --model checkpoints/best_model.pth \
+    --input path/to/image.jpg \
+    --output result.png
+
+# Batch processing
+python scripts/predict.py \
+    --model checkpoints/best_model.pth \
+    --input data/images/ \
+    --output results/
+
+# Without TTA (faster but less accurate)
+python scripts/predict.py \
+    --model checkpoints/best_model.pth \
+    --input image.jpg \
+    --output result.png \
+    --no-tta
 ```
 
 ## 🌐 Web Demo
 
-Try it directly in your browser!
+Try it directly in your browser:
 
 **Online Demo**: [Click to Open Demo](https://FeiFeiAlbert.github.io/ophthalmic-segmentation/demo/)
 
@@ -120,28 +178,32 @@ python -m http.server 8000
 - 📊 Side-by-side comparison (Original vs Masked)
 - 🎨 Color-coded segmentation overlay
 
+**Note**: The demo is a frontend visualization. For actual model inference, use the Python scripts.
+
 ## 📂 Project Structure
 
 ```
 ophthalmic-segmentation/
 ├── README.md
-├── LICENSE
+├── README_zh.md
+├── LICENSE (MIT)
 ├── requirements.txt
 ├── setup.py
 ├── demo/
-│   ├── index.html          # Interactive demo
+│   ├── index.html          # Interactive demo (frontend visualization)
 │   └── sample_image.jpg    # Demo image
 ├── ophthalmic_segmentation/
-│   ├── __init__.py
-│   ├── model.py            # Model definition
-│   ├── data.py             # Dataset class
-│   ├── losses.py           # Loss functions
+│   ├── __init__.py         # Package exports
+│   ├── model.py            # Model definition (UNet++, DeepLabV3+, etc.)
+│   ├── data.py             # Dataset class with augmentation
+│   ├── losses.py           # Focal, Dice, Lovasz, CombinedLoss
 │   └── utils.py            # Utility functions
 ├── scripts/
-│   ├── train.py            # Training script
-│   └── predict.py          # Inference script
+│   ├── train_v16.py        # V16 training script (FULL version)
+│   ├── train.py             # Simplified training script
+│   └── predict.py           # V16 inference script
 ├── checkpoints/
-│   └── best_model.pth      # Pre-trained weights
+│   └── best_model.pth      # Pre-trained weights (V16)
 ├── docs/
 │   ├── training_report.md   # Detailed training log
 │   └── results.md          # Evaluation results
@@ -151,9 +213,8 @@ ophthalmic-segmentation/
 
 ## 📖 Documentation
 
-- [Training Report](docs/training_report.md) - Detailed training process and results
+- [Training Report](docs/training_report.md) - Detailed V16 training process and results
 - [Results Analysis](docs/results.md) - Performance metrics and comparisons
-- [API Reference](docs/api.md) - API documentation
 
 ## 🔬 Segmentation Classes
 
@@ -185,3 +246,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [segmentation-models-pytorch](https://github.com/qubvel/segmentation_models.pytorch)
 - [EfficientNet](https://arxiv.org/abs/1905.11946)
 - [UNet++](https://arxiv.org/abs/1912.05074)
+- [Lovasz Loss](https://github.com/bermanmaxim/LovsaszSoftmax)
