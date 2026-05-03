@@ -23,7 +23,6 @@
 - **4-Direction TTA**: Test-Time Augmentation for robust predictions
 - **Hot-Start Training**: Start from V13 pretrained weights for faster convergence
 - **Pre-trained Models**: Ready-to-use checkpoints
-- **Web Demo**: Interactive browser-based demo
 - **Real Model Inference**: Load trained model and predict on new images
 
 ## 📊 Performance
@@ -34,6 +33,41 @@
 | Val Dice (4x TTA) | **0.9398** |
 | ROI Dice | 0.9282 |
 | Reflex Dice | 0.9660 |
+
+## 🖼️ Example Results
+
+Real segmentation results from the v16 model:
+
+<table>
+<tr>
+<td align="center"><b>Original</b></td>
+<td align="center"><b>Prediction Mask</b></td>
+<td align="center"><b>Overlay</b></td>
+</tr>
+<tr>
+<td colspan="3">
+
+![Example 1](examples/example_1.png)
+
+</td>
+</tr>
+<tr>
+<td colspan="3">
+
+![Example 2](examples/example_2.png)
+
+</td>
+</tr>
+<tr>
+<td colspan="3">
+
+![Example 3](examples/example_3.png)
+
+</td>
+</tr>
+</table>
+
+More examples: [examples/](https://github.com/FeiFeiAlbert/ophthalmic-segmentation/tree/main/examples)
 
 ## 🏗️ Architecture
 
@@ -157,29 +191,6 @@ python scripts/predict.py \
     --no-tta
 ```
 
-## 🌐 Web Demo
-
-Try it directly in your browser:
-
-**Online Demo**: [Click to Open Demo](https://FeiFeiAlbert.github.io/ophthalmic-segmentation/demo/)
-
-Or run locally:
-
-```bash
-cd demo
-python -m http.server 8000
-# Open http://localhost:8000 in browser
-```
-
-### Demo Features
-
-- 📤 Upload your own fundus image
-- 🔮 Real-time segmentation preview
-- 📊 Side-by-side comparison (Original vs Masked)
-- 🎨 Color-coded segmentation overlay
-
-**Note**: The demo is a frontend visualization. For actual model inference, use the Python scripts.
-
 ## 📂 Project Structure
 
 ```
@@ -189,9 +200,10 @@ ophthalmic-segmentation/
 ├── LICENSE (MIT)
 ├── requirements.txt
 ├── setup.py
-├── demo/
-│   ├── index.html          # Interactive demo (frontend visualization)
-│   └── sample_image.jpg    # Demo image
+├── examples/              # Example segmentation results
+│   ├── example_1.png
+│   ├── example_2.png
+│   └── example_3.png
 ├── ophthalmic_segmentation/
 │   ├── __init__.py         # Package exports
 │   ├── model.py            # Model definition (UNet++, DeepLabV3+, etc.)
@@ -215,6 +227,7 @@ ophthalmic-segmentation/
 
 - [Training Report](docs/training_report.md) - Detailed V16 training process and results
 - [Results Analysis](docs/results.md) - Performance metrics and comparisons
+- [Examples](examples/) - Visual segmentation results
 
 ## 🔬 Segmentation Classes
 
@@ -243,7 +256,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- [segmentation-models-pytorch](https://github.com/qubvel/segmentation_models.pytorch)
+- [segmentation-models-pytorch](https://github.com/qubvel/segmentation-models.pytorch)
 - [EfficientNet](https://arxiv.org/abs/1905.11946)
 - [UNet++](https://arxiv.org/abs/1912.05074)
-- [Lovasz Loss](https://github.com/bermanmaxim/LovsaszSoftmax)
+- [Lovasz Loss](https://github.com/bermanmaxim/LovaszSoftmax)
