@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>眼底图像分割演示 | Fundus Image Segmentation Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            padding: 30px 0;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #00d9ff, #00ff88);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            color: #8892b0;
+            font-size: 1.1rem;
+        }
+
+        .demo-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 30px;
+            margin: 20px 0;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .upload-area {
+            border: 2px dashed #00d9ff;
+            border-radius: 15px;
+            padding: 50px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+
+        .upload-area:hover {
+            border-color: #00ff88;
+            background: rgba(0, 217, 255, 0.1);
+        }
+
+        .upload-area.dragover {
+            background: rgba(0, 255, 136, 0.2);
+            border-color: #00ff88;
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            margin-bottom: 15px;
+        }
+
+        .upload-text {
+            font-size: 1.2rem;
+            color: #ccd6f6;
+        }
+
+        .upload-hint {
+            font-size: 0.9rem;
+            color: #8892b0;
+            margin-top: 10px;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .result-card {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .result-card h3 {
+            color: #00d9ff;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+
+        .result-card canvas {
+            border-radius: 10px;
+            max-width: 100%;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            background: linear-gradient(90deg, #00d9ff, #00ff88);
+            color: #1a1a2e;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 217, 255, 0.4);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 2px solid #00d9ff;
+            color: #00d9ff;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(0, 217, 255, 0.1);
+        }
+
+        .info-section {
+            margin-top: 30px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .info-card {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .info-card .icon {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .info-card .value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #00ff88;
+        }
+
+        .info-card .label {
+            color: #8892b0;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+
+        .class-legend {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 5px;
+        }
+
+        .bg-black { background: #000; }
+        .bg-green { background: #00ff00; }
+        .bg-red { background: #ff0000; }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(0, 217, 255, 0.3);
+            border-top-color: #00d9ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .sample-images {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 15px 0;
+            flex-wrap: wrap;
+        }
+
+        .sample-thumb {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 10px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .sample-thumb:hover {
+            border-color: #00d9ff;
+            transform: scale(1.1);
+        }
+
+        footer {
+            text-align: center;
+            padding: 30px;
+            color: #8892b0;
+        }
+
+        footer a {
+            color: #00d9ff;
+            text-decoration: none;
+        }
+
+        .note {
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+            font-size: 0.9rem;
+        }
+
+        .note-title {
+            color: #ffc107;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔬 眼底图像分割演示</h1>
+            <p class="subtitle">基于 UNet++ 与 EfficientNet-B4 的高精度眼底图像分割</p>
+        </header>
+
+        <div class="demo-section">
+            <div class="class-legend">
+                <div class="legend-item">
+                    <div class="legend-color bg-black"></div>
+                    <span>背景 (Background)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color bg-green"></div>
+                    <span>视网膜区域 (ROI)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color bg-red"></div>
+                    <span>有效反光点 (Valid Reflex)</span>
+                </div>
+            </div>
+
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📁</div>
+                <div class="upload-text">拖拽图像到这里 或 点击上传</div>
+                <div class="upload-hint">支持 JPG, PNG 格式</div>
+                <input type="file" id="fileInput" accept="image/*">
+            </div>
+
+            <div class="sample-images">
+                <p style="width:100%; text-align:center; color:#8892b0;">示例图像：</p>
+                <img src="sample_image.jpg" class="sample-thumb" alt="Sample 1" title="点击使用此图像" onclick="useSampleImage(this)">
+                <img src="sample_mask.png" class="sample-thumb" alt="Sample Mask" title="分割结果预览" style="opacity:0.7">
+            </div>
+
+            <div class="controls">
+                <button class="btn btn-primary" onclick="processImage()" id="processBtn" disabled>
+                    🔮 开始分割
+                </button>
+                <button class="btn btn-secondary" onclick="downloadResult()" id="downloadBtn" disabled>
+                    📥 下载结果
+                </button>
+            </div>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <div>正在处理...</div>
+            </div>
+
+            <div class="results-grid" id="resultsGrid" style="display:none;">
+                <div class="result-card">
+                    <h3>📷 原图</h3>
+                    <canvas id="originalCanvas"></canvas>
+                </div>
+                <div class="result-card">
+                    <h3>🎯 分割掩码</h3>
+                    <canvas id="maskCanvas"></canvas>
+                </div>
+                <div class="result-card">
+                    <h3>✨ 叠加效果</h3>
+                    <canvas id="overlayCanvas"></canvas>
+                </div>
+            </div>
+
+            <div class="note">
+                <div class="note-title">💡 说明</div>
+                此演示使用模拟分割效果展示。真实模型需要GPU推理支持。完整模型请参考 
+                <a href="https://github.com/YOUR_USERNAME/ophthalmic-segmentation" target="_blank">GitHub仓库</a>。
+            </div>
+        </div>
+
+        <div class="demo-section info-section">
+            <h2 style="text-align:center; margin-bottom:20px;">📊 模型性能指标</h2>
+            <div class="info-grid">
+                <div class="info-card">
+                    <div class="icon">🎯</div>
+                    <div class="value">0.9554</div>
+                    <div class="label">验证集 Dice (无TTA)</div>
+                </div>
+                <div class="info-card">
+                    <div class="icon">🚀</div>
+                    <div class="value">0.9398</div>
+                    <div class="label">验证集 Dice (TTA)</div>
+                </div>
+                <div class="info-card">
+                    <div class="icon">🔵</div>
+                    <div class="value">0.9282</div>
+                    <div class="label">ROI Dice</div>
+                </div>
+                <div class="info-card">
+                    <div class="icon">🔴</div>
+                    <div class="value">0.9660</div>
+                    <div class="label">反光点 Dice</div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>基于 UNet++ + EfficientNet-B4 架构 | <a href="https://github.com/YOUR_USERNAME/ophthalmic-segmentation">GitHub</a></p>
+            <p style="margin-top:10px;">Val Dice: 0.9554 | 分割类别: 3类</p>
+        </footer>
+    </div>
+
+    <script>
+        let currentImage = null;
+        let currentResult = null;
+
+        // Upload area drag and drop
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                loadImageFile(file);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                loadImageFile(file);
+            }
+        });
+
+        function loadImageFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                currentImage = new Image();
+                currentImage.onload = () => {
+                    document.getElementById('processBtn').disabled = false;
+                    // Show preview
+                    const canvas = document.getElementById('originalCanvas');
+                    const ctx = canvas.getContext('2d');
+                    const size = 300;
+                    canvas.width = size;
+                    canvas.height = size * currentImage.height / currentImage.width;
+                    ctx.drawImage(currentImage, 0, 0, canvas.width, canvas.height);
+                    
+                    // Show results grid
+                    document.getElementById('resultsGrid').style.display = 'grid';
+                    document.getElementById('downloadBtn').disabled = false;
+                };
+                currentImage.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function useSampleImage(img) {
+            currentImage = new Image();
+            currentImage.crossOrigin = 'anonymous';
+            currentImage.onload = () => {
+                document.getElementById('processBtn').disabled = false;
+                const canvas = document.getElementById('originalCanvas');
+                const ctx = canvas.getContext('2d');
+                const size = 300;
+                canvas.width = size;
+                canvas.height = size * currentImage.height / currentImage.width;
+                ctx.drawImage(currentImage, 0, 0, canvas.width, canvas.height);
+                document.getElementById('resultsGrid').style.display = 'grid';
+            };
+            currentImage.src = img.src;
+        }
+
+        function processImage() {
+            if (!currentImage) return;
+
+            const loading = document.getElementById('loading');
+            const resultsGrid = document.getElementById('resultsGrid');
+            
+            loading.style.display = 'block';
+            resultsGrid.style.display = 'none';
+
+            // Simulate processing
+            setTimeout(() => {
+                loading.style.display = 'none';
+                resultsGrid.style.display = 'grid';
+                
+                // Draw original
+                const origCanvas = document.getElementById('originalCanvas');
+                const origCtx = origCanvas.getContext('2d');
+                origCanvas.width = 300;
+                origCanvas.height = 300 * currentImage.height / currentImage.width;
+                origCtx.drawImage(currentImage, 0, 0, origCanvas.width, origCanvas.height);
+
+                // Generate simulated mask (vessel-like pattern)
+                const maskCanvas = document.getElementById('maskCanvas');
+                const maskCtx = maskCanvas.getContext('2d');
+                maskCanvas.width = origCanvas.width;
+                maskCanvas.height = origCanvas.height;
+
+                // Create simulated segmentation
+                const imageData = maskCtx.createImageData(maskCanvas.width, maskCanvas.height);
+                const centerX = maskCanvas.width / 2;
+                const centerY = maskCanvas.height / 2;
+                const radius = Math.min(centerX, centerY) * 0.8;
+
+                for (let y = 0; y < maskCanvas.height; y++) {
+                    for (let x = 0; x < maskCanvas.width; x++) {
+                        const idx = (y * maskCanvas.width + x) * 4;
+                        const dist = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
+                        
+                        if (dist < radius * 0.3) {
+                            // ROI - Green
+                            imageData.data[idx] = 0;
+                            imageData.data[idx + 1] = 255;
+                            imageData.data[idx + 2] = 0;
+                        } else if (dist < radius * 0.5 && Math.sin(x * 0.2) * Math.cos(y * 0.15) > 0.3) {
+                            // Valid Reflex - Red
+                            imageData.data[idx] = 255;
+                            imageData.data[idx + 1] = 0;
+                            imageData.data[idx + 2] = 0;
+                        } else {
+                            // Background - Black
+                            imageData.data[idx] = 0;
+                            imageData.data[idx + 1] = 0;
+                            imageData.data[idx + 2] = 0;
+                        }
+                        imageData.data[idx + 3] = 255;
+                    }
+                }
+                maskCtx.putImageData(imageData, 0, 0);
+
+                // Draw overlay
+                const overlayCanvas = document.getElementById('overlayCanvas');
+                const overlayCtx = overlayCanvas.getContext('2d');
+                overlayCanvas.width = origCanvas.width;
+                overlayCanvas.height = origCanvas.height;
+                overlayCtx.drawImage(currentImage, 0, 0, overlayCanvas.width, overlayCanvas.height);
+                
+                // Apply semi-transparent mask
+                overlayCtx.globalAlpha = 0.4;
+                overlayCtx.drawImage(maskCanvas, 0, 0);
+                overlayCtx.globalAlpha = 1.0;
+
+                currentResult = {
+                    original: origCanvas.toDataURL(),
+                    mask: maskCanvas.toDataURL(),
+                    overlay: overlayCanvas.toDataURL()
+                };
+            }, 1500);
+        }
+
+        function downloadResult() {
+            if (!currentResult) return;
+
+            const link = document.createElement('a');
+            link.download = 'segmentation_result.png';
+            link.href = currentResult.overlay;
+            link.click();
+        }
+    </script>
+</body>
+</html>
